@@ -2,27 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Zee Bangla Fullscreen Player</title>
+  <title>Zee Bangla</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       background-color: black;
-      width: 100%;
       height: 100%;
-      overflow: hidden;
+      width: 100%;
     }
-    video {
+    #video-container {
+      position: fixed;
+      top: 0;
+      left: 0;
       width: 100vw;
       height: 100vh;
-      object-fit: cover;
+      background-color: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    video {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
       background-color: black;
     }
   </style>
 </head>
 <body>
-  <video id="video" autoplay muted playsinline controls></video>
+  <div id="video-container">
+    <video id="video" autoplay muted playsinline controls></video>
+  </div>
 
   <script>
     async function initPlayer() {
@@ -36,41 +50,32 @@
           }
         },
         abr: {
-          enabled: false
+          enabled: false  // Manual quality selection
         }
       });
 
       try {
         await player.load('https://d1g8wgjurz8via.cloudfront.net/bpk-tv/Zeebangla/default/manifest.mpd');
-        console.log('The video has now been loaded!');
+        console.log('Stream loaded');
 
-        // Set to highest resolution
+        // Select the highest available resolution
         const tracks = player.getVariantTracks();
-        const highest = tracks.reduce((a, b) => a.height > b.height ? a : b);
-        if (highest) {
-          player.selectVariantTrack(highest, true);
-          console.log(`Selected resolution: ${highest.height}p`);
+        const best = tracks.reduce((a, b) => a.height > b.height ? a : b);
+        if (best) {
+          player.selectVariantTrack(best, true);
+          console.log(`Resolution: ${best.height}p`);
         }
 
-        // Attempt to play
+        // Autoplay muted
         await video.play();
 
-        // Try to unmute after a short delay
+        // Attempt to unmute after short delay
         setTimeout(() => {
           video.muted = false;
         }, 1000);
 
-        // Request fullscreen
-        if (video.requestFullscreen) {
-          video.requestFullscreen();
-        } else if (video.webkitRequestFullscreen) {
-          video.webkitRequestFullscreen();
-        } else if (video.msRequestFullscreen) {
-          video.msRequestFullscreen();
-        }
-
       } catch (error) {
-        console.error('Error initializing the player:', error);
+        console.error('Error playing video:', error);
       }
     }
 
