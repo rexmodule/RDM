@@ -2,27 +2,43 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Zee Bangla Fullscreen Player</title>
+  <title>Zee Bangla Responsive Player</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body {
       margin: 0;
       padding: 0;
-      background-color: black;
+      background: black;
+      font-family: sans-serif;
+      height: 100%;
+      width: 100%;
+    }
+
+    .player-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 100vw;
+      margin: 0 auto;
+      padding-top: 56.25%; /* 16:9 Aspect Ratio (9/16 = 0.5625) */
+      background: black;
+    }
+
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden;
-    }
-    video {
-      width: 100vw;
-      height: 100vh;
-      object-fit: cover;
-      background-color: black;
+      object-fit: contain;
+      background: black;
     }
   </style>
 </head>
 <body>
-  <video id="video" autoplay muted playsinline controls></video>
+  <div class="player-wrapper">
+    <video id="video" controls autoplay muted playsinline></video>
+  </div>
 
   <script>
     async function initPlayer() {
@@ -35,42 +51,24 @@
             '1df83e058b864da896c9288eef63b113': 'fc32f26239054b56aab48225305598fe'
           }
         },
-        abr: {
-          enabled: false
-        }
+        abr: { enabled: false }
       });
 
       try {
         await player.load('https://d1g8wgjurz8via.cloudfront.net/bpk-tv/Zeebangla/default/manifest.mpd');
-        console.log('The video has now been loaded!');
 
-        // Set to highest resolution
+        // Select highest resolution track
         const tracks = player.getVariantTracks();
-        const highest = tracks.reduce((a, b) => a.height > b.height ? a : b);
-        if (highest) {
-          player.selectVariantTrack(highest, true);
-          console.log(`Selected resolution: ${highest.height}p`);
-        }
+        const best = tracks.reduce((a, b) => a.height > b.height ? a : b);
+        if (best) player.selectVariantTrack(best, true);
 
-        // Attempt to play
-        await video.play();
-
-        // Try to unmute after a short delay
+        // Unmute after delay
         setTimeout(() => {
           video.muted = false;
         }, 1000);
 
-        // Request fullscreen
-        if (video.requestFullscreen) {
-          video.requestFullscreen();
-        } else if (video.webkitRequestFullscreen) {
-          video.webkitRequestFullscreen();
-        } else if (video.msRequestFullscreen) {
-          video.msRequestFullscreen();
-        }
-
       } catch (error) {
-        console.error('Error initializing the player:', error);
+        console.error('Error loading stream:', error);
       }
     }
 
