@@ -1,78 +1,113 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Zee Bangla Responsive Player</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.compiled.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: black;
-      font-family: sans-serif;
-      height: 100%;
-      width: 100%;
-    }
+<meta charset="UTF-8">
+<title>Zee Bangla HD Player</title>
 
-    .player-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 100vw;
-      margin: 0 auto;
-      padding-top: 56.25%; /* 16:9 Aspect Ratio (9/16 = 0.5625) */
-      background: black;
-    }
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    video {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      background: black;
-    }
-  </style>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+}
+
+.player-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: black;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
+}
+</style>
 </head>
+
 <body>
-  <div class="player-wrapper">
-    <video id="video" controls autoplay muted playsinline></video>
-  </div>
 
-  <script>
-    async function initPlayer() {
-      const video = document.getElementById('video');
-      const player = new shaka.Player(video);
+<div class="player-wrapper">
+    <video id="video"
+           controls
+           autoplay
+           muted
+           playsinline>
+    </video>
+</div>
 
-      player.configure({
-        drm: {
-          clearKeys: {
-            '1df83e058b864da896c9288eef63b113': 'fc32f26239054b56aab48225305598fe'
-          }
-        },
-        abr: { enabled: false }
-      });
+<script>
 
-      try {
-        await player.load('https://d1g8wgjurz8via.cloudfront.net/bpk-tv/Zeebangla/default/manifest.mpd');
+const video = document.getElementById('video');
 
-        // Select highest resolution track
-        const tracks = player.getVariantTracks();
-        const best = tracks.reduce((a, b) => a.height > b.height ? a : b);
-        if (best) player.selectVariantTrack(best, true);
+const streamURL =
+    'https://raw.githubusercontent.com/amazeyourself/adaptive-streams/refs/heads/main/streams/in/YuppTV/ZeeBanglaHD.m3u8';
 
-        // Unmute after delay
-        setTimeout(() => {
-          video.muted = false;
-        }, 1000);
+if (Hls.isSupported()) {
 
-      } catch (error) {
-        console.error('Error loading stream:', error);
-      }
-    }
+    const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true
+    });
 
-    document.addEventListener('DOMContentLoaded', initPlayer);
-  </script>
+    hls.loadSource(streamURL);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, function () {
+        video.play().catch(() => {});
+    });
+
+    hls.on(Hls.Events.ERROR, function (event, data) {
+
+        console.error('HLS error:', data);
+
+        if (data.fatal) {
+
+            switch (data.type) {
+
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                    console.log('Network error - retrying...');
+                    hls.startLoad();
+                    break;
+
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                    console.log('Media error - recovering...');
+                    hls.recoverMediaError();
+                    break;
+
+                default:
+                    hls.destroy();
+                    break;
+            }
+        }
+    });
+
+}
+else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+
+    // Safari / browsers with native HLS support
+    video.src = streamURL;
+
+    video.addEventListener('loadedmetadata', function () {
+        video.play().catch(() => {});
+    });
+
+}
+else {
+
+    alert('This browser does not support HLS playback.');
+
+}
+
+</script>
+
 </body>
 </html>
