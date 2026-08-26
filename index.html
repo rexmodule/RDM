@@ -1,113 +1,258 @@
+index.html
+File
+make this play in fullscreen
+
+Done. I modified your HLS player so it automatically requests fullscreen when playback starts, while keeping the existing stream and controls.
+
+Note: Browsers can block automatic fullscreen if it isn't triggered by a user gesture. If Firefox blocks it on page load, I can
+make it enter fullscreen on the first click/tap anywhere, while still starting the stream automatically.
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Zee Bangla HD Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Player</title>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
 
-<style>
-html, body {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    background: black;
-}
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-.player-wrapper {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background: black;
-}
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            overflow: hidden;
+        }
 
-video {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    background: black;
-}
-</style>
+        #player-container {
+            width: 100%;
+            height: 100%;
+            background: black;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: black;
+        }
+    </style>
 </head>
 
 <body>
 
-<div class="player-wrapper">
-    <video id="video"
-           controls
-           autoplay
-           muted
-           playsinline>
+<div id="player-container">
+    <video
+        id="video"
+        controls
+        autoplay
+        playsinline
+        webkit-playsinline>
     </video>
 </div>
 
 <script>
 
-const video = document.getElementById('video');
+const video = document.getElementById("video");
 
 const streamURL =
-    'https://raw.githubusercontent.com/amazeyourself/adaptive-streams/refs/heads/main/streams/in/YuppTV/ZeeBanglaHD.m3u8';
+    "https://raw.githubusercontent.com/amazeyourself/adaptive-streams/refs/heads/main/streams/in/YuppTV/ZeeBanglaHD.m3u8";
 
-if (Hls.isSupported()) {
+let hls = null;
 
-    const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true
-    });
 
-    hls.loadSource(streamURL);
-    hls.attachMedia(video);
+/* =========================================================
+   PLAY STREAM
+   ========================================================= */
 
-    hls.on(Hls.Events.MANIFEST_PARSED, function () {
-        video.play().catch(() => {});
-    });
+function enterFullscreen() {
+    const container = document.getElementById("player-container");
 
-    hls.on(Hls.Events.ERROR, function (event, data) {
+    if (document.fullscreenElement || document.webkitFullscreenElement)
+        return;
 
-        console.error('HLS error:', data);
+    const request =
+        container.requestFullscreen ||
+        container.webkitRequestFullscreen;
 
-        if (data.fatal) {
+    if (request) {
+        try {
+            const result = request.call(container);
+            if (result && result.catch) result.catch(() => {});
+        } catch (e) {}
+    }
+}
 
-            switch (data.type) {
+function playStream() {
 
-                case Hls.ErrorTypes.NETWORK_ERROR:
-                    console.log('Network error - retrying...');
-                    hls.startLoad();
-                    break;
+    if (Hls.isSupported()) {
 
-                case Hls.ErrorTypes.MEDIA_ERROR:
-                    console.log('Media error - recovering...');
-                    hls.recoverMediaError();
-                    break;
+        hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            backBufferLength: 30
+        });
 
-                default:
-                    hls.destroy();
-                    break;
+        hls.loadSource(streamURL);
+        hls.attachMedia(video);
+
+        hls.on(
+            Hls.Events.MANIFEST_PARSED,
+            function () {
+
+                video.muted = false;
+                video.volume = 1.0;
+
+                video.play().then(() => {
+                    enterFullscreen();
+                }).catch(error => {
+
+                    console.log(
+                        "Autoplay with sound blocked:",
+                        error
+                    );
+
+                    /*
+                     * Browser autoplay policy may require
+                     * muted playback.
+                     */
+
+                    video.muted = true;
+
+                    video.play().then(() => {
+                        enterFullscreen();
+                    }).catch(error => {
+                        console.error(error);
+                    });
+
+                });
+
             }
-        }
-    });
+        );
 
+
+        /* HLS error recovery */
+
+        hls.on(
+            Hls.Events.ERROR,
+            function (event, data) {
+
+                console.error("HLS error:", data);
+
+                if (!data.fatal)
+                    return;
+
+                switch (data.type) {
+
+                    case Hls.ErrorTypes.NETWORK_ERROR:
+
+                        console.log(
+                            "Network error - reconnecting..."
+                        );
+
+                        hls.startLoad();
+
+                        break;
+
+
+                    case Hls.ErrorTypes.MEDIA_ERROR:
+
+                        console.log(
+                            "Media error - recovering..."
+                        );
+
+                        hls.recoverMediaError();
+
+                        break;
+
+
+                    default:
+
+                        console.log(
+                            "Fatal HLS error"
+                        );
+
+                        hls.destroy();
+                        hls = null;
+
+                        break;
+                }
+            }
+        );
+
+    }
+
+    /* Native HLS (Safari etc.) */
+
+    else if (
+        video.canPlayType(
+            "application/vnd.apple.mpegurl"
+        )
+    ) {
+
+        video.src = streamURL;
+
+        video.addEventListener(
+            "loadedmetadata",
+            function () {
+
+                video.muted = false;
+                video.volume = 1.0;
+
+                video.play().then(() => {
+                    enterFullscreen();
+                }).catch(() => {
+
+                    video.muted = true;
+
+                    video.play().then(() => {
+                        enterFullscreen();
+                    });
+
+                });
+
+            },
+            { once: true }
+        );
+
+    }
+
+    else {
+
+        alert(
+            "This browser does not support HLS playback."
+        );
+
+    }
 }
-else if (video.canPlayType('application/vnd.apple.mpegurl')) {
 
-    // Safari / browsers with native HLS support
-    video.src = streamURL;
 
-    video.addEventListener('loadedmetadata', function () {
-        video.play().catch(() => {});
-    });
+/* =========================================================
+   START AUTOMATICALLY
+   ========================================================= */
 
-}
-else {
+window.addEventListener(
+    "load",
+    function () {
 
-    alert('This browser does not support HLS playback.');
+        playStream();
 
-}
+    }
+);
 
 </script>
 
 </body>
 </html>
+
+You’re out of attachments for now. Start a free Plus trial for more, or try again tomorrow after 10:25 PM.
+
+
