@@ -1,12 +1,3 @@
-index.html
-File
-make this play in fullscreen
-
-Done. I modified your HLS player so it automatically requests fullscreen when playback starts, while keeping the existing stream and controls.
-
-Note: Browsers can block automatic fullscreen if it isn't triggered by a user gesture. If Firefox blocks it on page load, I can
-make it enter fullscreen on the first click/tap anywhere, while still starting the stream automatically.
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,6 +102,10 @@ function playStream() {
                 video.muted = false;
                 video.volume = 1.0;
 
+                video.muted = false;
+                video.defaultMuted = false;
+                video.volume = 1.0;
+
                 video.play().then(() => {
                     enterFullscreen();
                 }).catch(error => {
@@ -140,6 +135,13 @@ function playStream() {
 
 
         /* HLS error recovery */
+
+        video.addEventListener("playing", function () {
+            video.defaultMuted = false;
+            video.muted = false;
+            video.volume = 1.0;
+            enterFullscreen();
+        });
 
         hls.on(
             Hls.Events.ERROR,
@@ -252,7 +254,3 @@ window.addEventListener(
 
 </body>
 </html>
-
-You’re out of attachments for now. Start a free Plus trial for more, or try again tomorrow after 10:25 PM.
-
-
